@@ -14,3 +14,13 @@ skills-update/
 _to_delete/
 
 /.clerk/
+
+# Local AI instructions. Kept on disk, not published.
+CLAUDE.md
+AGENTS.md
+FORME.md
+cursor.md
+CURSOR.md
+.claude/
+.cursor/
+docs/
