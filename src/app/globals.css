@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+:root {
+  /* One family for the whole app (Google Sans Flex, open licence); a book serif for big figures. */
+  --font-bricolage: "Google Sans Flex Variable";
+  --font-instrument: "Google Sans Flex Variable";
+  --font-figure: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+}
+
+/*
+ * CohortGlobal design tokens. "Field ledger": cool mineral neutrals, one pine
+ * accent for actions and progress, warm amber only for things that need attention.
+ * Display: Bricolage Grotesque. Text: Instrument Sans. See docs/phase-1/1A-scaffold.md.
+ */
+@theme {
+  --font-sans: var(--font-instrument), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-bricolage), var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+
+  --color-paper: #f4f5f7;
+  --color-surface: #ffffff;
+  --color-sunken: #eceef2;
+  --color-ink: #141821;
+  --color-ink-2: #384050;
+  --color-muted: #687083;
+  --color-faint: #98a0b0;
+  --color-line: #e2e5ea;
+  --color-line-strong: #cbd0d8;
+
+  --color-pine-50: #e8f3f0;
+  --color-pine-100: #cfe7e1;
+  --color-pine-200: #9fcfc3;
+  --color-pine-500: #138571;
+  --color-pine-600: #0b6b5d;
+  --color-pine-700: #08574c;
+  --color-pine-900: #053a33;
+
+  --color-amber-50: #fdf4e3;
+  --color-amber-600: #b26a00;
+  --color-amber-700: #8a5200;
+  --color-rose-50: #fceeed;
+  --color-rose-600: #c2362f;
+  --color-rose-700: #9c2a24;
+  --color-leaf-50: #eaf5ee;
+  --color-leaf-600: #1f7a4d;
+  --color-sky-50: #ecf1fc;
+  --color-sky-600: #2d5bd7;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 14px;
+
+  --shadow-raise: 0 1px 0 rgb(20 24 33 / 0.04), 0 1px 2px rgb(20 24 33 / 0.06);
+  --shadow-float: 0 12px 32px -12px rgb(20 24 33 / 0.28), 0 2px 6px rgb(20 24 33 / 0.08);
+
+  --ease-snap: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  --animate-rise: rise 0.32s var(--ease-snap) both;
+  --animate-fade: fade 0.2s ease-out both;
+  --animate-pop: pop 0.18s var(--ease-snap) both;
+  --animate-shimmer: shimmer 1.4s linear infinite;
+
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pop { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
+  @keyframes shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; text-rendering: optimizeLegibility; }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--color-pine-100); color: var(--color-pine-900); }
+  :focus-visible { outline: 2px solid var(--color-pine-600); outline-offset: 2px; border-radius: 4px; }
+  h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.015em; }
+  .tabular { font-variant-numeric: tabular-nums; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+@keyframes track-fill { from { width: 0; } }
+@keyframes node-in { from { transform: scale(0.4); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Pop-up messages (ID-46): white card, coloured icon and edge, title plus one line of detail. */
+[data-sonner-toaster] [data-sonner-toast].cg-toast {
+  font-family: var(--font-instrument);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-float);
+  padding: 13px 36px 13px 16px;
+  gap: 10px;
+  align-items: flex-start;
+  overflow: hidden;
+}
+[data-sonner-toaster] [data-sonner-toast].cg-toast::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--cg-toast-accent, var(--color-line-strong));
+}
+[data-sonner-toaster] [data-sonner-toast].cg-toast [data-icon] { margin-top: 1px; color: var(--cg-toast-accent, var(--color-muted)); }
+[data-sonner-toaster] [data-sonner-toast].cg-toast-success { --cg-toast-accent: var(--color-pine-600); }
+[data-sonner-toaster] [data-sonner-toast].cg-toast-error { --cg-toast-accent: var(--color-rose-600); }
+[data-sonner-toaster] [data-sonner-toast].cg-toast-info { --cg-toast-accent: var(--color-sky-600); }
+[data-sonner-toaster] .cg-toast .cg-toast-title { font-size: 14px; font-weight: 600; line-height: 1.35; color: var(--color-ink); }
+[data-sonner-toaster] .cg-toast .cg-toast-detail { margin-top: 2px; font-size: 13px; line-height: 1.45; color: var(--color-ink-2); }
+[data-sonner-toaster] [data-sonner-toast].cg-toast .cg-toast-close {
+  left: auto; right: 6px; top: 6px; transform: none;
+  background: transparent; border: 0; color: var(--color-faint);
+}
+[data-sonner-toaster] [data-sonner-toast].cg-toast .cg-toast-close:hover { background: var(--color-sunken); color: var(--color-ink); }
+

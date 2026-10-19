@@ -1,0 +1,16 @@
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.local
+.env.*.local
+!.env.example
+supabase/.temp/
+supabase/.branches/
+skills-update/
+_to_delete/
+
+/.clerk/
