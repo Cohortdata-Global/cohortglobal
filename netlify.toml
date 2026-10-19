@@ -1,0 +1,12 @@
+# Netlify (test deployment, owner choice 2026-10-19). Netlify runs Next.js through its
+# OpenNext adapter automatically: pages and server actions become a Netlify Function,
+# middleware (Clerk) becomes an Edge Function. No plugin to install.
+[build]
+  command = "pnpm build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
+  # If the build says the pnpm version is too old, set PNPM_VERSION in
+  # Site configuration → Environment variables to what `pnpm -v` prints on your Mac.

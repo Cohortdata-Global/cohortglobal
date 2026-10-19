@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { PenLine, Undo2 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { notify } from "@/lib/notify";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Textarea } from "@/components/ui/field";
 import { ConfirmAction } from "@/components/app/confirm-action";
@@ -16,7 +17,8 @@ export type ApplyQuestion = { id: string; prompt: string; help_text: string | nu
  * The application form for a job (#21). Answers can't be edited after sending (#23),
  * so the last step asks for confirmation.
  */
-export function ApplyForm({ projectId, questions, applyingAs }: { projectId: string; questions: ApplyQuestion[]; applyingAs: string }) {
+/** `preview`: the PM's preview of the job page. Checks run as usual, but nothing is sent. */
+export function ApplyForm({ projectId, questions, applyingAs, preview = false }: { projectId: string; questions: ApplyQuestion[]; applyingAs: string; preview?: boolean }) {
   const t = useTranslations("apply");
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -36,6 +38,11 @@ export function ApplyForm({ projectId, questions, applyingAs }: { projectId: str
   }
 
   function send() {
+    if (preview) {
+      setConfirming(false);
+      notify.info(t("previewSent"), t("previewSentDetail"));
+      return;
+    }
     const payload: Record<string, AnswerValue> = Object.fromEntries(Object.entries(answers).map(([k, v]): [string, AnswerValue] => [k, typeof v === "string" ? v.trim() : v]));
     run(() => submitApplication(projectId, payload), {
       onError: (r) => { setConfirming(false); setErrors(r.fieldErrors ?? {}); },

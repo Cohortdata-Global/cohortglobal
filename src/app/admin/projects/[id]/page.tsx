@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Building2, FileText, Inbox, ListChecks } from "lucide-react";
+import { Building2, Eye, FileText, Inbox, ListChecks } from "lucide-react";
 import { PageHeader, TabLinks, Notice, Stat, EmptyState } from "@/components/ui/misc";
 import { Panel, PanelBody, PanelHeader, DetailList } from "@/components/ui/panel";
 import { Table, THead, TH, TR, TD } from "@/components/ui/table";
@@ -93,6 +93,7 @@ export default async function ProjectDetail({ params, searchParams }: { params: 
         description={p.summary || undefined}
         actions={
           <>
+            <Button asChild variant="secondary"><Link href={`/preview/projects/${id}`}><Eye /> {t("preview")}</Link></Button>
             {canAny(viewer, APPLICATIONS_CONSOLE) ? <Button asChild variant="secondary"><Link href={`${base}/applications`}><Inbox /> {pending ? t("applicationsCount", { count: pending }) : t("applications")}</Link></Button> : null}
             {manage ? <ProjectStatusActions projectId={id} status={p.status} title={p.title} /> : null}
           </>

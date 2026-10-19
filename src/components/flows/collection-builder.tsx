@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Grid3X3, ImagePlus, LayoutTemplate, Plus, Trash2, X } from "lucide-react";
+import Link from "next/link";
+import { ArrowDown, ArrowUp, Eye, Grid3X3, ImagePlus, LayoutTemplate, Plus, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/field";
@@ -112,11 +113,18 @@ export function CollectionBuilder({ projectId, initial, version, canEdit, images
             <p className="font-semibold text-ink">{version > 0 ? t("versionLabel", { version }) : t("notSetUp")}</p>
             <p className="text-muted">{version > 0 ? t("versionBody") : t("notSetUpBody")}</p>
           </div>
-          {canEdit ? (
-            <Button variant="secondary" onClick={() => (version > 0 || dirty ? setConfirmTemplate(true) : applyTemplate())}>
-              <LayoutTemplate /> {t("useTemplate")}
-            </Button>
-          ) : null}
+          <div className="flex flex-wrap gap-2">
+            {version > 0 ? (
+              <Button asChild variant="ghost" title={dirty ? t("previewSavedOnly") : undefined}>
+                <Link href={`/preview/projects/${projectId}?view=collect`}><Eye /> {t("previewPage")}</Link>
+              </Button>
+            ) : null}
+            {canEdit ? (
+              <Button variant="secondary" onClick={() => (version > 0 || dirty ? setConfirmTemplate(true) : applyTemplate())}>
+                <LayoutTemplate /> {t("useTemplate")}
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         <Block id="intro" title={t("sections.intro")} description={t("introBody")}>
