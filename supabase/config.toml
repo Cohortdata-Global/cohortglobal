@@ -1,0 +1,41 @@
+# Supabase CLI configuration for local development (`pnpm db:start`).
+project_id = "cohortglobal"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[db.seed]
+enabled = false
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+
+# AD-1: Supabase verifies Clerk session tokens. Set CLERK_FRONTEND_API_DOMAIN
+# (for example "your-app.clerk.accounts.dev") in your shell before `supabase start`.
+[auth.third_party.clerk]
+enabled = true
+domain = "env(CLERK_FRONTEND_API_DOMAIN)"
+
+[storage]
+enabled = true
+file_size_limit = "10MiB"
+
+# Agency company documents (implementation decision ID-12). Private bucket.
+[storage.buckets.agency-documents]
+public = false
+file_size_limit = "10MiB"
+allowed_mime_types = ["application/pdf", "image/png", "image/jpeg", "image/webp"]

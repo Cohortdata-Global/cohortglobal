@@ -1,0 +1,65 @@
+/*
+ * Homepage styles. Two moods, after the owner's references:
+ *  - top: light and calm (Gemini-like greeting, soft surfaces, gradient sweep);
+ *  - "pulse" board: sage frame, dark tiles that react to the pointer (Do Grid-like).
+ * Plain CSS, no animation library; everything stops under prefers-reduced-motion.
+ */
+.cg-landing {
+  --g-bg: #ffffff;
+  --g-soft: #f0f4f9;
+  --g-soft-2: #e3e9f1;
+  --g-hover: #dde3ea;
+  --g-ink: #1f1f1f;
+  --g-muted: #444746;
+  --g-faint: #c4c7c5;
+  --g-blue: #4b6bdc;
+  background: var(--g-bg);
+  color: var(--g-ink);
+}
+
+/* Greeting: gradient that sweeps across once. */
+.cg-hello {
+  background: linear-gradient(74deg, #4285f4 0, #9b72cb 9%, #d96570 20%, #d96570 24%, #9b72cb 35%, #4285f4 44%, #9b72cb 50%, #d96570 56%, #fff 75%, #fff 100%);
+  background-size: 400% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: cg-sweep 1.8s cubic-bezier(.3,.6,.3,1) both;
+}
+@keyframes cg-sweep { from { background-position: 100% 0; } to { background-position: 0 0; } }
+.cg-fade-up { animation: cg-fade-up .7s cubic-bezier(.2,.7,.2,1) both; animation-delay: var(--d, 0ms); }
+@keyframes cg-fade-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+/* Suggestion cards with small live illustrations. */
+.cg-card { background: var(--g-soft); transition: background-color .25s ease; }
+.cg-card:hover { background: var(--g-hover); }
+.cg-type { display: inline-block; max-width: 0; overflow: hidden; white-space: nowrap; vertical-align: bottom; transition: max-width .9s steps(26); }
+.cg-card:hover .cg-type { max-width: 240px; }
+.cg-caret { display: inline-block; width: 2px; height: 1em; background: var(--g-blue); vertical-align: -2px; animation: cg-blink 1s steps(1) infinite; }
+@keyframes cg-blink { 50% { opacity: 0; } }
+.cg-doc { transition: transform .45s cubic-bezier(.2,.8,.2,1); }
+.cg-card:hover .cg-doc { transform: translateY(-6px) rotate(-3deg); }
+.cg-plus { transition: transform .45s cubic-bezier(.2,.8,.2,1), background-color .25s; }
+.cg-card:hover .cg-plus { transform: rotate(90deg) scale(1.1); background: var(--g-blue); }
+.cg-scrollmask { mask-image: linear-gradient(transparent, #000 18%, #000 70%, transparent); }
+.cg-scrolltext { transition: transform 2.4s cubic-bezier(.3,.6,.3,1); }
+.cg-card:hover .cg-scrolltext { transform: translateY(-58px); }
+.cg-bar { transform-origin: bottom; transform: scaleY(0); animation: cg-grow .9s cubic-bezier(.2,.8,.2,1) forwards; animation-delay: calc(400ms + var(--i) * 60ms); }
+.cg-card:hover .cg-bar { animation: cg-grow .9s forwards, cg-wave .9s ease-in-out calc(var(--i) * 55ms); }
+@keyframes cg-grow { to { transform: scaleY(1); } }
+@keyframes cg-wave { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.55); } }
+.cg-sign { stroke-dasharray: 220; stroke-dashoffset: 220; transition: stroke-dashoffset 1.2s cubic-bezier(.3,.6,.3,1); }
+.cg-card:hover .cg-sign { stroke-dashoffset: 0; }
+
+/* Pulse board (dark tiles in a sage frame). */
+.cg-pulse { --p-frame: #9ca99f; --p-panel: #0f0f0f; --p-card: #1b1b1b; --p-line: #2b2b2b; --p-text: #f2f2f2; --p-muted: #8d8d8d; --p-accent: #f2481d; --p-good: #57e083; }
+.cg-tile { background: var(--p-card); border-radius: 22px; }
+.cg-rise { opacity: 0; transform: translateY(26px) scale(.985); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); transition-delay: calc(var(--i, 0) * 70ms); }
+.cg-pulse.is-in .cg-rise { opacity: 1; transform: none; }
+.cg-cell { opacity: 0; transform: scale(.4); transition: opacity .35s, transform .35s cubic-bezier(.2,.8,.2,1), outline-color .15s; transition-delay: calc(300ms + var(--d) * 14ms); outline: 2px solid transparent; outline-offset: 1px; }
+.cg-pulse.is-in .cg-cell { opacity: 1; transform: none; }
+.cg-cell:hover { outline-color: #f5ef8c; transition-delay: 0ms; }
+.cg-figure { font-family: var(--font-figure); font-weight: 500; letter-spacing: -0.02em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cg-hello, .cg-fade-up, .cg-bar { animation: none !important; transform: none !important; background-position: 0 0; }
+  .cg-rise, .cg-cell { opacity: 1 !important; transform: none !important; transition: none !important; }
+}

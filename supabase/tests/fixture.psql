@@ -1,0 +1,137 @@
+-- Shared test fixture (included by every *.test.sql file with \ir).
+-- Builds: platform + Super Admin, Project Manager, two approved agencies
+-- (Owner, Manager, Members), a direct freelancer, a newcomer, and a published project.
+\set QUIET on
+\set ON_ERROR_STOP on
+create extension if not exists pgtap with schema extensions;
+set search_path = public, extensions;
+
+create schema if not exists tests;
+grant usage on schema tests to public;
+
+-- Act as a signed-in Clerk user (sub = Clerk user id) or as the service role.
+create or replace function tests.login(p_sub text) returns void language plpgsql as $$
+begin
+  execute 'reset role';
+  perform set_config('request.jwt.claims', json_build_object('sub', p_sub, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+end $$;
+create or replace function tests.as_service() returns void language plpgsql as $$
+begin
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+  execute 'set local role service_role';
+end $$;
+create or replace function tests.as_anon() returns void language plpgsql as $$
+begin
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"role":"anon"}', true);
+  execute 'set local role anon';
+end $$;
+create or replace function tests.as_owner() returns void language plpgsql as $$
+begin
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+end $$;
+-- Applies as the signed-in user: details, one document, then send for review (ID-44).
+create or replace function tests.apply_agency(p jsonb) returns uuid language plpgsql as $$
+declare v uuid;
+begin
+  v := public.save_agency_application(p);
+  perform public.register_agency_document(v, 'REGISTRATION_CERTIFICATE', 'registration.pdf', 'agency-documents',
+    'fixture/' || v || '/registration.pdf', 'application/pdf', 1000);
+  perform public.submit_agency_application(p);
+  return v;
+end $$;
+grant execute on all functions in schema tests to public;
+
+-- Returns the SQLSTATE raised by a statement, or 'OK'.
+create or replace function tests.err(p_sql text) returns text language plpgsql as $$
+begin
+  execute p_sql;
+  return 'OK';
+exception when others then
+  return sqlstate;
+end $$;
+grant execute on function tests.err(text) to public;
+
+create table if not exists tests.ids (k text primary key, v uuid);
+grant all on tests.ids to public;
+create or replace function tests.id(p text) returns uuid language sql stable as $$ select v from tests.ids where k = p $$;
+grant execute on function tests.id(text) to public;
+
+-- Users (as the Clerk webhook would create them)
+select tests.as_service();
+select sync_clerk_user('sa',    'sa@cohortdata.com',    'Sara Admin', null);
+select sync_clerk_user('pm',    'pm@cohortdata.com',    'Priya PM', null);
+select sync_clerk_user('qcl',   'qcl@cohortdata.com',   'Quinn QC', null);
+select sync_clerk_user('o1',    'owner@alpha.io',       'Omar Owner', null);
+select sync_clerk_user('m1',    'manager@alpha.io',     'Maya Manager', null);
+select sync_clerk_user('mem1',  'member1@alpha.io',     'Mo Member', null);
+select sync_clerk_user('mem1b', 'member2@alpha.io',     'Mina Member', null);
+select sync_clerk_user('o2',    'owner@beta.io',        'Bea Owner', null);
+select sync_clerk_user('mem2',  'member@beta.io',       'Ben Member', null);
+select sync_clerk_user('f1',    'free@lancer.com',      'Fatima Freelancer', null);
+select sync_clerk_user('new1',  'newbie@example.com',   'Nia New', null);
+select bootstrap_super_admin('sa@cohortdata.com');
+
+-- Staff: Super Admin invites a PM and a QC Lead
+select tests.login('sa');
+select (create_invitation('PLATFORM_STAFF', 'pm@cohortdata.com', null, 'PROJECT_MANAGER')) ->> 'token' as tok_pm \gset
+select (create_invitation('PLATFORM_STAFF', 'qcl@cohortdata.com', null, 'QC_LEAD')) ->> 'token' as tok_qcl \gset
+select tests.login('pm');  select accept_invitation(:'tok_pm');
+select tests.login('qcl'); select accept_invitation(:'tok_qcl');
+
+-- Agencies apply and are approved
+select tests.login('o1');
+select tests.apply_agency('{"name":"Alpha Data","legal_name":"Alpha Data Pte Ltd","country_code":"SG","registration_number":"201912345K",
+  "contact_name":"Omar","contact_email":"owner@alpha.io","contact_phone_e164":"+6591234567","website_url":"https://alpha.io"}'::jsonb) as org1 \gset
+select tests.login('o2');
+select tests.apply_agency('{"name":"Beta Collect","legal_name":"Beta Collect Ltda","country_code":"BR","tax_id":"12.345.678/0001-90",
+  "contact_name":"Bea","contact_email":"owner@beta.io","contact_phone_e164":"+5511912345678","website_url":"https://beta.io"}'::jsonb) as org2 \gset
+select tests.login('sa');
+select decide_agency(:'org1', 'APPROVE');
+select decide_agency(:'org2', 'APPROVE');
+
+-- Agency 1 invites its Manager and two Members; Agency 2 one Member
+select tests.login('o1');
+select (create_invitation('AGENCY_MANAGER', 'manager@alpha.io', :'org1')) ->> 'token' as tok_m1 \gset
+select (create_invitation('AGENCY_MEMBER', 'member1@alpha.io', :'org1')) ->> 'token' as tok_mem1 \gset
+select tests.login('m1');
+select accept_invitation(:'tok_m1');
+select (create_invitation('AGENCY_MEMBER', 'member2@alpha.io', :'org1')) ->> 'token' as tok_mem1b \gset
+select tests.login('mem1');  select accept_invitation(:'tok_mem1');
+select tests.login('mem1b'); select accept_invitation(:'tok_mem1b');
+select tests.login('o2');
+select (create_invitation('AGENCY_MEMBER', 'member@beta.io', :'org2')) ->> 'token' as tok_mem2 \gset
+select tests.login('mem2');  select accept_invitation(:'tok_mem2');
+
+-- Direct freelancer
+select tests.login('f1');
+select complete_freelancer_onboarding('{"full_name":"Fatima Freelancer","country_code":"IN","phone_e164":"+919876543210"}'::jsonb);
+
+-- A published project open to both agencies and individuals
+select tests.login('pm');
+select create_project('{"code":"OC03","title":"Face Motion Video Collection","summary":"10 second face videos",
+  "description":"Record a ten second face motion video following the on-screen dots.","applicant_type":"BOTH"}'::jsonb) as proj \gset
+select save_project_questions(:'proj', '[
+  {"prompt":"How many contributors can you provide?","answer_type":"SHORT_TEXT","required":true},
+  {"prompt":"Which regions?","answer_type":"MULTIPLE_CHOICE","options":["India","Indonesia","Brazil"],"required":true},
+  {"prompt":"Have you done face data before?","answer_type":"YES_NO","required":false}]'::jsonb);
+select save_contract_template(:'proj', 'OC03 Collection Agreement', 'The contributor agrees to collect face motion videos under the CohortData guidelines.');
+select set_project_status(:'proj', 'PUBLISHED');
+
+select tests.as_owner();
+insert into tests.ids values
+  ('org1', :'org1'), ('org2', :'org2'), ('proj', :'proj'),
+  ('u_sa', (select id from users where clerk_user_id = 'sa')), ('u_pm', (select id from users where clerk_user_id = 'pm')),
+  ('u_o1', (select id from users where clerk_user_id = 'o1')), ('u_m1', (select id from users where clerk_user_id = 'm1')),
+  ('u_mem1', (select id from users where clerk_user_id = 'mem1')), ('u_mem2', (select id from users where clerk_user_id = 'mem2')),
+  ('u_f1', (select id from users where clerk_user_id = 'f1')),
+  ('ms_m1', (select id from organization_memberships where user_id = (select id from users where clerk_user_id = 'm1'))),
+  ('ms_mem1', (select id from organization_memberships where user_id = (select id from users where clerk_user_id = 'mem1'))),
+  ('ms_mem1b', (select id from organization_memberships where user_id = (select id from users where clerk_user_id = 'mem1b'))),
+  ('ms_mem2', (select id from organization_memberships where user_id = (select id from users where clerk_user_id = 'mem2'))),
+  ('ms_o1', (select id from organization_memberships where user_id = (select id from users where clerk_user_id = 'o1')));
+insert into tests.ids select 'q' || position, id from project_questions where project_id = tests.id('proj');
+\set QUIET off
