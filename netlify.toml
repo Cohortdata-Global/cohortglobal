@@ -1,6 +1,7 @@
-# Netlify (test deployment, owner choice 2026-10-19). Netlify runs Next.js through its
-# OpenNext adapter automatically: pages and server actions become a Netlify Function,
-# middleware (Clerk) becomes an Edge Function. No plugin to install.
+# Netlify (test deployment, owner choice 2026-10-19). The Next.js runtime below turns
+# pages and server actions into a Netlify Function and the middleware (Clerk) into an
+# Edge Function. Without it Netlify only uploads the .next folder as plain files and
+# every page is "Page not found" (seen on the first deploy, 2026-10-23).
 [build]
   command = "pnpm build"
   publish = ".next"
@@ -11,3 +12,6 @@
   # Same pnpm that checked the lockfile and built the app before hosting (2026-10-23).
   # The lockfile is format 9 and pnpm-workspace.yaml uses allowBuilds, so pnpm 10 is needed.
   PNPM_VERSION = "10.34.7"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
