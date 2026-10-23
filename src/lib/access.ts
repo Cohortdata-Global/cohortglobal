@@ -12,7 +12,7 @@ export type Permission =
   | "agency.view_all" | "agency.decide" | "agency.invite" | "agency.manage" | "agency_request.decide"
   | "project.view_all" | "project.view_assigned" | "project.assign_managers" | "project.manage" | "project.questions.relock" | "project.invite_agency"
   | "application.view_all" | "application.decide" | "contract.countersign" | "assignment.revoke"
-  | "audit.view_all" | "qc.queue.view"
+  | "audit.view_all" | "qc.queue.view" | "qc.assign" | "qc.review"
   | "org.view" | "org.members.view" | "org.members.invite" | "org.members.manage" | "org.manager.manage"
   | "org.profile.request_change" | "org.deactivation.request" | "org.ownership.request" | "org.projects.apply"
   | "org.contract.sign" | "org.members.assign" | "org.links.manage" | "org.audit.view" | "org.submissions.view_all"

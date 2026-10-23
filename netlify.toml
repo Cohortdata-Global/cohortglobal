@@ -8,5 +8,6 @@
 [build.environment]
   NODE_VERSION = "22"
   NEXT_TELEMETRY_DISABLED = "1"
-  # If the build says the pnpm version is too old, set PNPM_VERSION in
-  # Site configuration → Environment variables to what `pnpm -v` prints on your Mac.
+  # Same pnpm that checked the lockfile and built the app before hosting (2026-10-23).
+  # The lockfile is format 9 and pnpm-workspace.yaml uses allowBuilds, so pnpm 10 is needed.
+  PNPM_VERSION = "10.34.7"

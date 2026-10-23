@@ -11,6 +11,7 @@ import { serverEnv } from "@/server/env";
  *   - invitation preview before sign-in (src/server/invitations/preview.ts)
  *   - sending queued emails (src/server/email/outbox.ts)
  *   - storing and signing agency documents (src/server/storage/documents.ts)
+ *   - collection files and public-link sessions (src/server/collect/**, ID-55)
  *   - the Super Admin bootstrap script (scripts/bootstrap-super-admin.mjs)
  *
  * Every caller must authorize the operation first.

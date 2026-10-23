@@ -11,6 +11,8 @@ const TONE: Record<string, Tone> = {
   PENDING: "attention", APPROVED: "positive", WITHDRAWN: "neutral",
   AWAITING_SIGNATURE: "attention", AWAITING_COUNTERSIGNATURE: "info", REVOKED: "critical",
   ACCEPTED: "positive", EXPIRED: "neutral", CANCELLED: "neutral", ASSIGNED: "brand", UNASSIGNED: "neutral",
+  // Submissions (ID-55)
+  READY_FOR_QC: "info", IN_REVIEW: "info", RESUBMIT_REQUESTED: "attention", DELIVERED: "brand", SUBMITTED: "info", REPLACED: "neutral",
 };
 
 export function statusTone(status: string | null | undefined): Tone {

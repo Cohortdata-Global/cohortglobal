@@ -29,7 +29,8 @@ select is((select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.
   where n.nspname = 'app' and has_function_privilege('authenticated', p.oid, 'EXECUTE')
     and p.proname not in ('clerk_sub', 'current_user_id', 'current_org_id', 'has_permission', 'has_org_permission',
                           'is_member_of', 'is_direct_freelancer', 'can_view_user', 'can_view_project',
-                          'is_project_manager', 'is_project_staff', 'pm_can_see_event', 'pm_manages_assignment')), 0,
+                          'is_project_manager', 'is_project_staff', 'pm_can_see_event', 'pm_manages_assignment',
+                          'is_qc_assignee', 'has_qc_work_in')), 0,
   'signed-in users can run only the read-only access helpers in app');
 
 select ok(not has_function_privilege('authenticated', 'public.bootstrap_super_admin(text)', 'EXECUTE'),

@@ -14,6 +14,8 @@ import { ProjectStatusActions } from "@/components/flows/project-status-actions"
 import { InviteAgencyToProject } from "@/components/flows/project-admin-actions";
 import { ProjectManagers } from "@/components/flows/project-managers";
 import { CollectionBuilder } from "@/components/flows/collection-builder";
+import { SubmissionsBoard } from "@/components/collect/submissions";
+import { currentConfig } from "@/server/queries/submissions";
 import type { CollectionInput } from "@/lib/collection";
 import { can, canAny, APPLICATIONS_CONSOLE, PROJECT_CONSOLE, requireAnyPermission } from "@/server/auth/viewer";
 import { createUserClient } from "@/server/db/user-client";
@@ -33,10 +35,11 @@ type Project = {
   question_version: number; collection_version: number; published_at: string | null; created_at: string; updated_at: string;
 };
 
-export default async function ProjectDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
+export default async function ProjectDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const viewer = await requireAnyPermission(PROJECT_CONSOLE);
   const { id } = await params;
-  const { tab = "overview" } = await searchParams;
+  const sp = await searchParams;
+  const tab = sp.tab ?? "overview";
   const [db, t, labels] = await Promise.all([createUserClient(), getTranslations("projectDetail"), getLabels()]);
   const tz = viewer.user.timezone;
 
@@ -70,6 +73,7 @@ export default async function ProjectDetail({ params, searchParams }: { params: 
     { key: "questions", label: t("tabs.questions"), href: `${base}?tab=questions`, count: questions?.length ?? 0 },
     { key: "contract", label: t("tabs.contract"), href: `${base}?tab=contract` },
     { key: "collection", label: t("tabs.collection"), href: `${base}?tab=collection` },
+    { key: "submissions", label: t("tabs.submissions"), href: `${base}?tab=submissions` },
     { key: "agencies", label: t("tabs.agencies"), href: `${base}?tab=agencies`, count: invites?.length ?? 0 },
     { key: "history", label: t("tabs.history"), href: `${base}?tab=history` },
   ];
@@ -174,6 +178,11 @@ export default async function ProjectDetail({ params, searchParams }: { params: 
             ) : <EmptyState icon={<FileText />} title={t("noContract")} />}
           </PanelBody>
         </Panel>
+      ) : null}
+
+      {tab === "submissions" ? (
+        <SubmissionsBoard scope={{ projectId: id }} config={(await currentConfig(id)).config} searchParams={sp} basePath={`${base}?tab=submissions`}
+          detailHref={(sid) => `/admin/submissions/${sid}`} tz={tz} showAgency exportHref={`/api/projects/${id}/submissions-csv`} />
       ) : null}
 
       {tab === "collection" ? <CollectionTab projectId={id} version={p.collection_version} canEdit={manage && !["COMPLETED", "ARCHIVED"].includes(p.status)} /> : null}

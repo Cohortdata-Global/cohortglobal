@@ -28,6 +28,7 @@ const config = [
       "src/server/auth/sync-user.ts",
       "src/server/email/**",
       "src/server/storage/**",
+      "src/server/collect/**",
       "src/server/invitations/preview.ts",
       "src/app/api/webhooks/clerk/route.ts",
     ],

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Activity, Briefcase, Building2, ClipboardCheck, FileSignature, FolderKanban, Inbox, LayoutDashboard, Menu,
-  ScrollText, ShieldCheck, UserCircle, Users, X,
+  ScrollText, ShieldCheck, UserCircle, Users, X, ListChecks,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ import { Brand } from "@/components/app/brand";
 const ICONS = {
   overview: LayoutDashboard, agencies: Building2, requests: Inbox, projects: FolderKanban, contracts: FileSignature,
   staff: ShieldCheck, audit: ScrollText, members: Users, jobs: Briefcase, agencyProjects: ClipboardCheck,
-  profile: Building2, activity: Activity, account: UserCircle,
+  profile: Building2, activity: Activity, account: UserCircle, qc: ListChecks,
 } as const;
 
 export type NavItem = { href: string; label: string; icon: keyof typeof ICONS; badge?: number; exact?: boolean };

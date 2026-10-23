@@ -28,7 +28,8 @@
     "dashboard": "Dashboard",
     "jobs": "Jobs",
     "agency": "Agency",
-    "myProjects": "My projects"
+    "myProjects": "My projects",
+    "qc": "QC queue"
   },
   "surface": {
     "admin": "CohortData console",
@@ -62,7 +63,8 @@
     "reasonOptional": "Reason (optional)",
     "noteOptional": "Note (optional)",
     "approve": "Approve",
-    "reject": "Reject"
+    "reject": "Reject",
+    "someoneAtCohortData": "CohortData"
   },
   "labels": {
     "status": {
@@ -88,7 +90,13 @@
       "EXPIRED": "Expired",
       "CANCELLED": "Cancelled",
       "ASSIGNED": "Assigned",
-      "UNASSIGNED": "Unassigned"
+      "UNASSIGNED": "Unassigned",
+      "READY_FOR_QC": "Ready for QC",
+      "IN_REVIEW": "In review",
+      "RESUBMIT_REQUESTED": "Resubmission asked",
+      "DELIVERED": "Delivered",
+      "SUBMITTED": "Submitted",
+      "REPLACED": "Replaced"
     },
     "role": {
       "SUPER_ADMIN": "Super Admin",
@@ -138,7 +146,10 @@
       "invitation": "Invitation",
       "membership": "Membership",
       "agency_request": "Request",
-      "member_assignment": "Member assignment"
+      "member_assignment": "Member assignment",
+      "submission": "Submission",
+      "collection_session": "Session",
+      "submission_link": "Link"
     },
     "requestType": {
       "PROFILE_CHANGE": "Profile change",
@@ -701,7 +712,9 @@
     "newProject": "New project",
     "applications": "Applications",
     "siteTitle": "CohortGlobal",
-    "siteDescription": "CohortData's platform for data collection with agencies and freelancers."
+    "siteDescription": "CohortData's platform for data collection with agencies and freelancers.",
+    "submission": "Submission",
+    "qc": "QC queue"
   },
   "account": {
     "surface": "Your account",
@@ -1096,7 +1109,44 @@
     "option": "{name} ({email})",
     "links": "Collection links",
     "linksBody": "Links for freelancers without an account arrive with data collection. Each link is for one freelancer, expires after 24 hours and gives a 5-hour session.",
-    "locked": "Assignments are locked while the agency isn't active"
+    "locked": "Assignments are locked while the agency isn't active",
+    "tabTeam": "Team",
+    "tabSubmissions": "Submissions",
+    "tabSessions": "Sessions",
+    "tabLinks": "Public links",
+    "linksBodyLive": "Freelancers without an account submit through a link you create. One person per link, valid 24 hours.",
+    "openLinks": "Open public links",
+    "sessionsTitle": "Sessions",
+    "sessionsBody": "Each session is one person's 5-hour upload window.",
+    "noSessions": "No sessions yet",
+    "contributor": "Contributor",
+    "source": "Source",
+    "endsOrEnded": "Time left / ended",
+    "state": "State",
+    "viaLinkNamed": "Link: {label}",
+    "viaLink": "Public link",
+    "leftTime": "{h} h {m} min left",
+    "sessionOpen": "Open",
+    "sessionSubmitted": "Submitted",
+    "sessionCancelled": "Cancelled",
+    "sessionExpired": "Time ran out",
+    "linksTitle": "Public links",
+    "linksTitleBody": "Links for freelancers who don't have an account. Each works for one person for 24 hours.",
+    "noLinks": "No links yet",
+    "noLinksBody": "Create a link and send it to a freelancer.",
+    "linksClosed": "Links can be created while the project is collecting and your agency is active.",
+    "linkLabel": "Link",
+    "freelancer": "Freelancer",
+    "submissionsCol": "Submissions",
+    "expires": "Expires",
+    "noLabel": "Unnamed link",
+    "createdOn": "Created {date}",
+    "notUsedYet": "Not used yet",
+    "usedOf": "{used} of {max}",
+    "linkActive": "Active",
+    "linkExpired": "Expired",
+    "linkOff": "Turned off",
+    "closed": "Closed"
   },
   "work": {
     "hi": "Hi {name}",
@@ -1133,7 +1183,11 @@
     "ekycRequired": "Required for each task",
     "ekycNo": "Not required",
     "ends": "Ends",
-    "noEnd": "No end date"
+    "noEnd": "No end date",
+    "tabCollect": "Collect",
+    "tabSubmissions": "My submissions",
+    "notCollecting": "Not collecting right now",
+    "notCollectingBody": "CohortData hasn't opened collection for this project yet, or it is paused. Check back later."
   },
   "contracts": {
     "tabs": {
@@ -1266,7 +1320,8 @@
       "contract": "Contract",
       "agencies": "Invited agencies",
       "history": "History",
-      "collection": "Collection setup"
+      "collection": "Collection setup",
+      "submissions": "Submissions"
     },
     "back": "Projects",
     "applications": "Applications",
@@ -1678,6 +1733,61 @@
       },
       "imageRemoved": {
         "title": "Image removed"
+      },
+      "sessionStarted": {
+        "title": "Session started",
+        "detail": "You have {hours} hours to sign and upload."
+      },
+      "submitted": {
+        "title": "Submitted",
+        "detail": "Your files are in. Automatic checks run first, then CohortData's quality team reviews them."
+      },
+      "sessionCancelled": {
+        "title": "Session cancelled",
+        "detail": "Uploaded files were deleted. You can start again."
+      },
+      "linkCreated": {
+        "title": "Link created",
+        "detail": "Copy it now and send it to one freelancer. It works for 24 hours."
+      },
+      "linkRevoked": {
+        "title": "Link turned off",
+        "detail": "It stops working straight away. Submissions already made stay."
+      },
+      "qcAssigned": {
+        "title": "{count, plural, one {Assigned} other {# assigned}}",
+        "detail": "They show in the reviewer's \"Assigned to me\"."
+      },
+      "qcUnassigned": {
+        "title": "Returned to the queue"
+      },
+      "qcApproved": {
+        "title": "Approved",
+        "detail": "The contributor and the agency see it now."
+      },
+      "qcRejected": {
+        "title": "Rejected",
+        "detail": "Your remark goes to the contributor and the agency."
+      },
+      "qcResubmit": {
+        "title": "Resubmission asked",
+        "detail": "The contributor sees your remark and can submit again."
+      },
+      "commentShared": {
+        "title": "Comment shared",
+        "detail": "The agency and the contributor can see it."
+      },
+      "commentInternal": {
+        "title": "Internal comment added",
+        "detail": "Only CohortData sees it."
+      },
+      "checksPassed": {
+        "title": "Checks passed",
+        "detail": "The submission is back in the QC queue."
+      },
+      "checksFailed": {
+        "title": "Checks failed again",
+        "detail": "See the reasons under Automatic checks."
       }
     },
     "invalid": {
@@ -1729,7 +1839,17 @@
       "durationOrder": "The longest length must be longer than the shortest.",
       "conditionField": "Choose a field that has options.",
       "conditionValue": "This option no longer exists in the field.",
-      "consentText": "Add the consent text (at least 20 characters)."
+      "consentText": "Add the consent text (at least 20 characters).",
+      "collect_required": "Required.",
+      "collect_badEmail": "Enter a valid email address.",
+      "collect_badPhone": "Enter a phone number with country code.",
+      "collect_badNumber": "Enter a number.",
+      "collect_badDate": "Enter a date.",
+      "collect_badOption": "Choose one of the options offered.",
+      "collect_fileType": "This file type isn't accepted here.",
+      "collect_fileSize": "Files can be at most {max} MB.",
+      "collect_duration": "The video length is outside what this project needs.",
+      "collect_signature": "Draw your signature again."
     },
     "errors": {
       "signInAgain": "Sign in again.",
@@ -1744,7 +1864,16 @@
       "alreadyRecorded": "This file is already recorded.",
       "fallback": "Something went wrong. Try again, and contact CohortData support if it keeps happening.",
       "exists": "That already exists.",
-      "sessionExpired": "Your session expired. Sign in again."
+      "sessionExpired": "Your session expired. Sign in again.",
+      "notCollecting": "This project isn't collecting right now.",
+      "fixProfile": "Check your details",
+      "needNameEmail": "Enter your full name and email to start.",
+      "sessionGone": "This session has ended. Start a new session.",
+      "link_invalid": "This link is not valid.",
+      "link_revoked": "This link was turned off. Ask the agency for a new one.",
+      "link_expired": "This link has expired. Ask the agency for a new one.",
+      "link_closed": "This project isn't collecting right now.",
+      "link_used": "This link has already been used. Ask the agency for a new one."
     }
   },
   "documentsRoute": {
@@ -2015,6 +2144,253 @@
     "tooLong": "This is {seconds} seconds. It can be at most {max} seconds.",
     "fileProblem": "This file can't be used",
     "looksGood": "Looks good",
-    "chooseAnother": "Choose another file"
+    "chooseAnother": "Choose another file",
+    "offline": "Couldn't reach the server",
+    "offlineDetail": "Check your connection and try again.",
+    "sessionOver": "The session time is over. Start a new session.",
+    "stillUploading": "Still uploading",
+    "stillUploadingDetail": "Wait until every file shows Uploaded, then press Upload.",
+    "submittedTitle": "Submitted",
+    "submittedBody": "Thank you. Automatic checks run first, then CohortData's quality team reviews your files. The result and any remarks appear here.",
+    "consentDone": "Consent signed for this session.",
+    "cancelConfirm": "Cancel this session? Files you uploaded are deleted.",
+    "keepGoing": "Keep going",
+    "yesCancel": "Yes, cancel",
+    "uploadFailed": "Upload failed",
+    "tooBigStorage": "This file is bigger than storage accepts.",
+    "uploadInterrupted": "The upload was interrupted. Choose the file again to retry.",
+    "uploaded": "Uploaded",
+    "uploadingPct": "Uploading {pct}%",
+    "uploadedShort": "Uploaded"
+  },
+  "submissions": {
+    "status": {
+      "PENDING": "Awaiting checks",
+      "READY_FOR_QC": "Ready for QC",
+      "IN_REVIEW": "In QC review",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected",
+      "RESUBMIT_REQUESTED": "Resubmission asked",
+      "DELIVERED": "Delivered",
+      "WITHDRAWN": "Withdrawn",
+      "REPLACED": "Replaced by a new submission"
+    },
+    "cards": {
+      "total": "Total",
+      "pending": "Awaiting checks",
+      "inQc": "In QC",
+      "approved": "Approved",
+      "resubmit": "Resubmission asked",
+      "rejected": "Rejected",
+      "delivered": "Delivered"
+    },
+    "search": "Search name, email or file",
+    "anyStatus": "Any status",
+    "anySource": "Members and links",
+    "sourceMember": "Members",
+    "sourceLink": "Public links",
+    "export": "Export CSV",
+    "none": "No submissions yet",
+    "noneBody": "They appear here as soon as someone uploads.",
+    "noMatch": "No submissions match these filters",
+    "col": {
+      "file": "File",
+      "collector": "Contributor",
+      "segment": "Profile",
+      "status": "Status",
+      "length": "Length",
+      "submitted": "Submitted"
+    },
+    "noFile": "No file",
+    "viaLinkNamed": "Public link: {label}",
+    "viaLink": "Public link",
+    "member": "Member",
+    "seconds": "{n} s",
+    "pages": "Pages",
+    "prev": "Previous page",
+    "next": "Next page",
+    "pageOf": "Page {page} of {pages}",
+    "submittedOn": "Submitted {date}",
+    "rejectedRemark": "Rejected",
+    "resubmitRemark": "Resubmission asked",
+    "videoPreview": "Video",
+    "noVideo": "No video in this submission.",
+    "metadata": "Details",
+    "source": "Source",
+    "consentAndId": "Consent and ID check",
+    "consentSigned": "Consent signed {date}, {how}.",
+    "typed": "typed name \"{name}\"",
+    "drawn": "drawn signature",
+    "checkbox": "checkbox only",
+    "noConsent": "No consent recorded for this submission.",
+    "signatureAlt": "Drawn signature",
+    "idFront": "ID front",
+    "idBack": "ID back",
+    "noId": "No ID document.",
+    "idHidden": "ID documents are visible to CohortData only.",
+    "history": "Status history",
+    "backToList": "Back to submissions",
+    "submitAgain": "Submit again"
+  },
+  "links": {
+    "create": "Create link",
+    "createTitle": "Create a link for one freelancer",
+    "createBody": "One person per link. It works for 24 hours, and their submissions count for your agency.",
+    "label": "Who is it for?",
+    "labelHint": "Only you see this, e.g. the freelancer's name and city.",
+    "labelPlaceholder": "Lina, Jakarta",
+    "cancel": "Cancel",
+    "createButton": "Create link",
+    "readyTitle": "Link ready",
+    "readyBody": "Send this to the freelancer, e.g. on WhatsApp or by email.",
+    "copy": "Copy",
+    "copiedShort": "Copied",
+    "copied": "Link copied",
+    "copiedDetail": "Paste it into a chat or email.",
+    "copyFailed": "Couldn't copy the link",
+    "copyFailedDetail": "Select the link and copy it yourself.",
+    "onceOnly": "For security the full link is shown only now. If you lose it, create a new one.",
+    "done": "Done",
+    "turnOff": "Turn off",
+    "turnOffTitle": "Turn off the link for {label}?",
+    "turnOffBody": "It stops working at once. Submissions already made stay.",
+    "reasonOptional": "Note (optional)"
+  },
+  "linkPage": {
+    "metaTitle": "Submit your data",
+    "operatedBy": "Data collection by CohortData",
+    "validUntil": "Link valid until {date} UTC",
+    "yourSubmissions": "Your submissions on this link",
+    "submission": "Submission",
+    "problem": {
+      "invalid": {
+        "title": "This link isn't valid",
+        "body": "Check that you copied the whole link, or ask the agency that sent it."
+      },
+      "revoked": {
+        "title": "This link was turned off",
+        "body": "The agency turned this link off. Ask them for a new one."
+      },
+      "expired": {
+        "title": "This link has expired",
+        "body": "Links work for 24 hours. Ask the agency for a new one."
+      },
+      "closed": {
+        "title": "Not collecting right now",
+        "body": "This project isn't taking submissions at the moment. Ask the agency when it opens again."
+      },
+      "used": {
+        "title": "This link has been used",
+        "body": "Each link is for one submission. Ask the agency for a new link if you need to submit again."
+      }
+    }
+  },
+  "qc": {
+    "title": "QC queue",
+    "bodyAssign": "Submissions that passed the automatic checks. Assign them to reviewers, to yourself, or review the ones assigned to you.",
+    "bodyReview": "Submissions assigned to you. Open one, check the video and details, then decide.",
+    "views": {
+      "queue": "To assign",
+      "review": "In review",
+      "mine": "Assigned to me",
+      "done": "Decided"
+    },
+    "empty": {
+      "queue": "Nothing waiting to be assigned",
+      "review": "Nothing in review",
+      "mine": "Nothing assigned to you",
+      "done": "No decisions yet"
+    },
+    "search": "Search contributor, email or file",
+    "anyProject": "All projects",
+    "anyFlags": "Flagged or not",
+    "flaggedOnly": "Flagged only",
+    "col": {
+      "submission": "Submission",
+      "project": "Project",
+      "profile": "Profile",
+      "status": "Status",
+      "waiting": "Waiting since"
+    },
+    "selectAll": "Select all",
+    "selectRow": "Select {name}",
+    "selectHint": "Tick submissions to assign them.",
+    "selected": "{count, plural, one {# selected} other {# selected}}",
+    "assignTo": "Assign to…",
+    "reassignTo": "Reassign to…",
+    "assign": "Assign",
+    "assignMe": "Assign to me",
+    "takeIt": "Take this review",
+    "returnToQueue": "Return to queue",
+    "rerun": "Run automatic checks again",
+    "flags": "{count, plural, one {# flag} other {# flags}}",
+    "with": "With {name}",
+    "you": "you",
+    "reviewer": "a reviewer",
+    "noFile": "No file",
+    "roles": {
+      "SUPER_ADMIN": "Super Admin",
+      "OPERATIONS_MANAGER": "Operations Manager",
+      "PROJECT_MANAGER": "PM",
+      "QC_LEAD": "QC Lead",
+      "QC_REVIEWER": "QC Reviewer"
+    },
+    "panelTitle": "QC review",
+    "assignedTo": "Assigned to {name}",
+    "unassigned": "Waiting to be assigned",
+    "decision": "Decision",
+    "decide": {
+      "APPROVED": "Approve",
+      "RESUBMIT_REQUESTED": "Ask to resubmit",
+      "REJECTED": "Reject"
+    },
+    "confirm": {
+      "APPROVED": "Approve submission",
+      "RESUBMIT_REQUESTED": "Ask for a resubmission",
+      "REJECTED": "Reject submission"
+    },
+    "chooseDecision": "Choose a decision",
+    "reasons": "Reasons",
+    "reasonCodes": {
+      "FACE_CUT": "Face or head cut off",
+      "LIGHTING": "Wrong lighting",
+      "BLURRY": "Blurry or dark",
+      "WRONG_OPTIONS": "Doesn't match the chosen options",
+      "ACCESSORY": "Accessory not as chosen",
+      "BACKGROUND": "Wrong background",
+      "LENGTH": "Wrong length",
+      "DUPLICATE_PERSON": "Same person twice",
+      "EDITED": "Edited or forwarded video",
+      "OTHER": "Other"
+    },
+    "remarkLabel": "Remark for the contributor",
+    "remarkOptional": "Remark (optional)",
+    "remarkResubmitPh": "What to fix, e.g. \"Keep your whole head in the frame and sit closer to the window.\"",
+    "remarkRejectPh": "Why it can't be used.",
+    "remarkVisible": "The contributor and their agency see this remark.",
+    "remarkNeeded": "Write what is wrong (at least a few words). The contributor sees it.",
+    "remarkNeededTitle": "Add a remark first",
+    "comment": "Comment",
+    "commentPh": "Add a comment…",
+    "shareWithAgency": "Share with the agency and contributor",
+    "post": "Post",
+    "checksTitle": "Automatic checks",
+    "checks": {
+      "all": "All checks passed",
+      "profile_missing": "Missing answer",
+      "profile_option": "Option not offered",
+      "duplicate_field": "Duplicate",
+      "duplicate_file": "Same file already submitted",
+      "file_size": "File too large",
+      "file_length": "Length out of range",
+      "same_name_dob": "Same name and date of birth as another person",
+      "same_name_phone": "Same name and phone, different email"
+    },
+    "seeOther": "See the other submission",
+    "commentsTitle": "Comments",
+    "cohortData": "CohortData",
+    "sharedTag": "Shared",
+    "internalTag": "Internal",
+    "backToQueue": "Back to QC queue"
   }
 }

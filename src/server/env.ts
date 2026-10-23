@@ -11,8 +11,11 @@ const schema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(10),
   RESEND_API_KEY: z.string().optional().default(""),
   EMAIL_FROM: z.string().optional().default("CohortGlobal <no-reply@cohortglobal.local>"),
-  NEXT_PUBLIC_APP_URL: z.string().url().optional().default("http://localhost:3000"),
+  // Netlify sets URL (the site's main address) at runtime, so invite and public links work even if this is forgotten.
+  NEXT_PUBLIC_APP_URL: z.string().url().optional().default(process.env.URL || "http://localhost:3000"),
   AGENCY_DOCUMENTS_BUCKET: z.string().optional().default("agency-documents"),
+  /** Largest file storage accepts, in MB (Supabase Free: 50). Collection uploads are capped at this. */
+  STORAGE_FILE_LIMIT_MB: z.coerce.number().int().min(1).max(500000).optional().default(50),
 });
 
 let cached: z.infer<typeof schema> | null = null;

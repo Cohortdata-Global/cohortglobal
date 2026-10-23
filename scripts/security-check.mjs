@@ -15,16 +15,22 @@ const get = (path, init = {}) => fetch(base + path, { redirect: "manual", ...ini
 
 const closed = (s) => [301, 302, 303, 307, 308, 401, 403, 404].includes(s);
 
-for (const path of ["/admin", "/admin/agencies", "/admin/audit", "/agency", "/agency/members", "/work", "/account", "/onboarding/agency"]) {
+for (const path of ["/admin", "/admin/agencies", "/admin/audit", "/agency", "/agency/members", "/work", "/account", "/onboarding/agency", "/admin/qc", "/admin/projects", "/admin/submissions/00000000-0000-0000-0000-000000000000", "/preview/projects/00000000-0000-0000-0000-000000000000"]) {
   const r = await get(path);
   const loc = r.headers.get("location") ?? "";
   check(`No account: ${path} is closed`, closed(r.status) && (r.status !== 200), `${r.status} ${loc.slice(0, 60)}`);
 }
-for (const path of ["/agency/members/export", "/api/documents/00000000-0000-0000-0000-000000000000"]) {
+const Z = "00000000-0000-0000-0000-000000000000";
+for (const path of ["/agency/members/export", `/api/documents/${Z}`, `/api/submission-files/${Z}`, `/api/project-assets/${Z}`, `/api/projects/${Z}/submissions-csv`, `/c/${"x".repeat(32)}/asset/${Z}`]) {
   const r = await get(path);
   const body = r.status === 200 ? await r.text() : "";
   check(`No account: ${path} returns no data`, closed(r.status) && !body.includes("@"), `${r.status}`);
 }
+
+// Public submission links (2C): an unknown token shows a plain "not valid" page, hidden from search engines.
+const link = await get(`/c/${"x".repeat(32)}`);
+const linkBody = link.status === 200 ? await link.text() : "";
+check("Unknown public link: no data, noindex", link.status === 200 && /noindex/i.test(linkBody) && !/[\w.%+-]+@[\w-]+\.[a-z]{2,}/i.test(linkBody), `${link.status}`);
 
 const hook = await get("/api/webhooks/clerk", {
   method: "POST",

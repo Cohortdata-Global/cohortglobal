@@ -31,7 +31,7 @@ export function Timeline({ events, timeZone, empty }: { events: EventRow[]; time
                   ? t.rich("moved", { entity, from: labels.status(e.from_status).toLowerCase(), to, b })
                   : t.rich("set", { entity, to, b })}
               </p>
-              <p className="text-[12.5px] text-muted">{t("byAt", { who: e.actor?.full_name ?? e.actor?.email ?? tc("system"), when: formatDate(e.created_at, timeZone, true) })}</p>
+              <p className="text-[12.5px] text-muted">{t("byAt", { who: e.actor?.full_name ?? e.actor?.email ?? (e.actor_user_id ? tc("someoneAtCohortData") : tc("system")), when: formatDate(e.created_at, timeZone, true) })}</p>
               {e.reason ? <p className="mt-1 rounded-sm bg-paper px-2.5 py-1.5 text-[13px] text-ink-2">{e.reason}</p> : null}
             </div>
           </li>

@@ -23,11 +23,11 @@ export async function loadAgencyPeople(orgId: string) {
   return { members: rows, invitations: (invitations ?? []) as InvitationRow[] };
 }
 
-export type EventRow = { id: number; entity_type: string; from_status: string | null; to_status: string; reason: string | null; created_at: string; actor: { full_name: string | null; email: string } | null };
+export type EventRow = { id: number; entity_type: string; from_status: string | null; to_status: string; reason: string | null; created_at: string; actor_user_id?: string | null; actor: { full_name: string | null; email: string } | null };
 
 export async function loadEvents(filter: { organizationId?: string; entityId?: string; entityIds?: string[] }, limit = 30) {
   const db = await createUserClient();
-  let q = db.from("workflow_events").select("id,entity_type,from_status,to_status,reason,created_at,actor:users!workflow_events_actor_user_id_fkey(full_name,email)")
+  let q = db.from("workflow_events").select("id,entity_type,from_status,to_status,reason,created_at,actor_user_id,actor:users!workflow_events_actor_user_id_fkey(full_name,email)")
     .order("created_at", { ascending: false }).limit(limit);
   if (filter.organizationId) q = q.eq("organization_id", filter.organizationId);
   if (filter.entityId) q = q.eq("entity_id", filter.entityId);

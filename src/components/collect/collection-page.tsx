@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, CircleAlert, ExternalLink, FileVideo, ImageIcon, Mic, PlayCircle, Timer, Upload } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { CheckCircle2, CircleAlert, ExternalLink, FileVideo, ImageIcon, Loader2, Mic, PlayCircle, Timer, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
@@ -10,40 +11,62 @@ import { notify } from "@/lib/notify";
 import { cn, formatBytes } from "@/lib/utils";
 import { KIND_EXTENSIONS, matchingGuides, openOptions, type CollectionConfig, type FileSlot, type Guide } from "@/lib/collection";
 import { youtubeEmbedUrl } from "@/lib/video-url";
+import { uploadToStorage, UploadError } from "@/lib/resumable-upload";
+import type { UploadRole } from "@/lib/collect-profile";
+import {
+  cancelCollectSession, completeCollectUpload, prepareCollectUpload, signCollectConsent, startCollectionSession, startLinkSession, submitCollectSession,
+} from "@/server/actions/collect";
 
-type Picked = { file: File; seconds: number | null; problem: string | null };
+export type ResumeState = {
+  sessionId: string | null;
+  endsAt: string;
+  profile: Record<string, string>;
+  consentSigned: boolean;
+  files: { role: UploadRole; slotKey: string; fileName: string; size: number; seconds: number | null }[];
+};
+
+type Mode = "preview" | "live" | "link";
+type SessionRef = { sessionId: string } | { linkToken: string };
 
 /**
  * The contributor's page (first brief): details and guides → Start session →
- * 5-hour window with consent, signature, files and ID check.
- * Phase 2A uses it as the PM's **preview** (nothing is saved or uploaded);
- * Phase 2B and 2C reuse it for the real collection page and public links.
+ * 5-hour window with consent, signature, files and ID check → Upload.
+ * - preview: the PM's preview; nothing is saved or uploaded (ID-54)
+ * - live: logged-in Agency Member or Direct Freelancer (2B)
+ * - link: public link, no account (2C)
  */
-export function CollectionPage({ config, agency, imageBase, mode }: {
-  config: CollectionConfig; agency: { name: string; email: string } | null; imageBase: string; mode: "preview";
+export function CollectionPage({ config, agency, imageBase, mode, projectId, linkToken, filled = {}, resume = null, defaults = {}, storageLimitMb = 50 }: {
+  config: CollectionConfig; agency: { name: string; email: string } | null; imageBase: string; mode: Mode;
+  projectId?: string; linkToken?: string; filled?: Record<string, number>; resume?: ResumeState | null; defaults?: Record<string, string>;
+  /** Largest file storage accepts (STORAGE_FILE_LIMIT_MB); slots never allow more. */
+  storageLimitMb?: number;
 }) {
   const t = useTranslations("collect");
-  const [values, setValues] = useState<Record<string, string>>({});
+  const router = useRouter();
+  const [values, setValues] = useState<Record<string, string>>(resume?.profile ?? defaults);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [stage, setStage] = useState<"details" | "session">("details");
+  const [previewStarted, setPreviewStarted] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   const guides = useMemo(() => matchingGuides(config, values), [config, values]);
   const quotaFields = useMemo(() => new Set(config.quotas.flatMap((q) => q.when.map((w) => w.field))), [config.quotas]);
+  const inSession = mode === "preview" ? previewStarted : !!resume;
+  const endsAt = resume?.endsAt ?? null;
+  const ref: SessionRef | null = mode === "link" && linkToken ? { linkToken } : mode === "live" && resume?.sessionId ? { sessionId: resume.sessionId } : null;
 
   function set(key: string, v: string) {
     setValues((p) => {
       const next = { ...p, [key]: v };
-      // A choice can close options in other fields; clear those that are no longer open.
       for (const f of config.fields) {
-        if (f.type === "select" && f.key !== key && next[f.key] && !openOptions(config, f, next).includes(next[f.key]!)) delete next[f.key];
+        if (f.type === "select" && f.key !== key && next[f.key] && !openOptions(config, f, next, filled).includes(next[f.key]!)) delete next[f.key];
       }
       return next;
     });
     setErrors((e) => ({ ...e, [key]: "" }));
   }
 
-  function startSession() {
+  function check(): boolean {
     const next: Record<string, string> = {};
     for (const f of config.fields) {
       const v = (values[f.key] ?? "").trim();
@@ -55,11 +78,35 @@ export function CollectionPage({ config, agency, imageBase, mode }: {
     if (Object.keys(next).length) {
       notify.error(t("fillFirst"), t("fillFirstDetail", { count: Object.keys(next).length }));
       document.getElementById(`cf-${Object.keys(next)[0]}`)?.focus();
+      return false;
+    }
+    return true;
+  }
+
+  async function startSession() {
+    if (!check()) return;
+    if (mode === "preview") {
+      setPreviewStarted(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      notify.success(t("sessionStarted"), t("sessionStartedDetail", { hours: config.limits.sessionHours }));
       return;
     }
-    setStage("session");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    notify.success(t("sessionStarted"), t("sessionStartedDetail", { hours: config.limits.sessionHours }));
+    setStarting(true);
+    try {
+      const r = mode === "link" ? await startLinkSession(linkToken!, values) : await startCollectionSession(projectId!, values);
+      if (!r.ok) {
+        if (r.fieldErrors) setErrors(r.fieldErrors);
+        notify.error(r.error, Object.values(r.fieldErrors ?? {})[0]);
+        return;
+      }
+      notify.success(r.message ?? t("sessionStarted"), r.detail);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      router.refresh();
+    } catch {
+      notify.error(t("offline"), t("offlineDetail"));
+    } finally {
+      setStarting(false);
+    }
   }
 
   const embed = config.intro.videoUrl ? youtubeEmbedUrl(config.intro.videoUrl) : null;
@@ -70,11 +117,11 @@ export function CollectionPage({ config, agency, imageBase, mode }: {
         {agency ? (
           <div className="mb-5">
             <p className="text-[17px] font-semibold text-ink">{t("agencyName", { name: agency.name })}</p>
-            <p className="text-[14px] text-muted">{t("agencyContact")} <span className="font-medium text-ink-2">{agency.email}</span></p>
+            {agency.email ? <p className="text-[14px] text-muted">{t("agencyContact")} <span className="font-medium text-ink-2">{agency.email}</span></p> : null}
           </div>
         ) : null}
 
-        {stage === "session" ? <SessionClock hours={config.limits.sessionHours} /> : null}
+        {inSession ? <SessionClock endsAt={endsAt} hours={config.limits.sessionHours} /> : null}
 
         {config.intro.notice.trim() ? (
           <div className="mb-5 rounded-lg border border-amber-600/30 bg-amber-50 px-4 py-3.5 text-[14px] leading-relaxed text-amber-900">
@@ -104,20 +151,18 @@ export function CollectionPage({ config, agency, imageBase, mode }: {
           </div>
         ) : null}
 
-        {/* Profile */}
         <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
           {config.fields.map((f) => {
             const id = `cf-${f.key}`;
-            const locked = stage === "session";
             if (f.type === "select") {
-              const open = openOptions(config, f, values);
-              const limited = quotaFields.has(f.key);
+              const open = openOptions(config, f, values, filled);
+              const shown = inSession && values[f.key] && !open.includes(values[f.key]!) ? [values[f.key]!, ...open] : open;
               return (
                 <Field key={f.key} label={f.label} htmlFor={id} required={f.required} error={errors[f.key]}
-                  hint={limited ? t("demographicHint") : f.help || undefined}>
-                  <Select id={id} disabled={locked} value={values[f.key] ?? ""} aria-invalid={!!errors[f.key]} onChange={(e) => set(f.key, e.target.value)}>
+                  hint={quotaFields.has(f.key) ? t("demographicHint") : f.help || undefined}>
+                  <Select id={id} disabled={inSession || starting} value={values[f.key] ?? ""} aria-invalid={!!errors[f.key]} onChange={(e) => set(f.key, e.target.value)}>
                     <option value="">{t("selectPlaceholder", { field: f.label.toLowerCase() })}</option>
-                    {open.map((o) => <option key={o} value={o}>{o}</option>)}
+                    {shown.map((o) => <option key={o} value={o}>{o}</option>)}
                   </Select>
                 </Field>
               );
@@ -125,7 +170,7 @@ export function CollectionPage({ config, agency, imageBase, mode }: {
             const type = f.type === "email" ? "email" : f.type === "phone" ? "tel" : f.type === "date" ? "date" : f.type === "number" ? "number" : "text";
             return (
               <Field key={f.key} label={f.label} htmlFor={id} required={f.required} error={errors[f.key]} hint={f.help || undefined}>
-                <Input id={id} type={type} disabled={locked} value={values[f.key] ?? ""} aria-invalid={!!errors[f.key]}
+                <Input id={id} type={type} disabled={inSession || starting} value={values[f.key] ?? ""} aria-invalid={!!errors[f.key]}
                   autoComplete={f.type === "email" ? "email" : f.key === "full_name" ? "name" : f.type === "phone" ? "tel" : undefined}
                   onChange={(e) => set(f.key, e.target.value)} />
               </Field>
@@ -139,13 +184,14 @@ export function CollectionPage({ config, agency, imageBase, mode }: {
           </div>
         ) : null}
 
-        {stage === "details" ? (
-          <Button type="button" size="lg" className="mt-7 w-full" onClick={startSession}>{t("startSession")}</Button>
+        {!inSession ? (
+          <Button type="button" size="lg" className="mt-7 w-full" loading={starting} onClick={startSession}>{t("startSession")}</Button>
         ) : null}
       </section>
 
-      {stage === "session" ? (
-        <SessionSteps config={config} mode={mode} onCancel={() => { setStage("details"); notify.info(t("sessionCancelled"), t("sessionCancelledDetail")); }} />
+      {inSession ? (
+        <SessionSteps config={config} mode={mode} sessionRef={ref} resume={resume} storageLimitMb={storageLimitMb}
+          onPreviewCancel={() => { setPreviewStarted(false); notify.info(t("sessionCancelled"), t("sessionCancelledDetail")); }} />
       ) : null}
     </div>
   );
@@ -198,41 +244,109 @@ function GuideCard({ guide, imageBase }: { guide: Guide; imageBase: string }) {
   );
 }
 
-function SessionClock({ hours }: { hours: number }) {
+function SessionClock({ endsAt, hours }: { endsAt: string | null; hours: number }) {
   const t = useTranslations("collect");
-  const [end] = useState(() => Date.now() + hours * 3600_000);
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
-  const left = Math.max(0, end - now);
+  const [end] = useState(() => (endsAt ? new Date(endsAt).getTime() : Date.now() + hours * 3600_000));
+  // The clock starts after the page loads in the browser: the server's time and the browser's differ by a second, which React reports as a mismatch.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => { setNow(Date.now()); const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
+  const left = now === null ? end : Math.max(0, end - now);
   const h = Math.floor(left / 3600_000), m = Math.floor((left % 3600_000) / 60_000), s = Math.floor((left % 60_000) / 1000);
   return (
-    <div className="mb-5 flex items-center gap-3 rounded-lg border border-pine-600/25 bg-pine-50 px-4 py-3">
-      <Timer className="size-5 shrink-0 text-pine-700" />
-      <p className="text-[14px] text-pine-900">
-        <span className="font-semibold">{t("sessionOpen")}</span>{" "}
-        <span className="tabular font-semibold">{`${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`}</span> {t("left")}
+    <div className={cn("mb-5 flex items-center gap-3 rounded-lg border px-4 py-3", left < 15 * 60_000 ? "border-amber-600/30 bg-amber-50" : "border-pine-600/25 bg-pine-50")}>
+      <Timer className={cn("size-5 shrink-0", left < 15 * 60_000 ? "text-amber-700" : "text-pine-700")} />
+      <p className="text-[14px] text-ink">
+        {left > 0 ? (
+          <><span className="font-semibold">{t("sessionOpen")}</span> <span className="tabular font-semibold">{now === null ? "–:––:––" : `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`}</span> {t("left")}</>
+        ) : <span className="font-semibold">{t("sessionOver")}</span>}
       </p>
     </div>
   );
 }
 
-function SessionSteps({ config, mode, onCancel }: { config: CollectionConfig; mode: "preview"; onCancel: () => void }) {
+type Picked = { fileName: string; size: number; seconds: number | null; problem: string | null; progress: number | null; uploaded: boolean };
+
+function SessionSteps({ config, mode, sessionRef, resume, onPreviewCancel, storageLimitMb }: {
+  config: CollectionConfig; mode: Mode; sessionRef: SessionRef | null; resume: ResumeState | null; onPreviewCancel: () => void; storageLimitMb: number;
+}) {
   const t = useTranslations("collect");
-  const [agreed, setAgreed] = useState(false);
-  const [signature, setSignature] = useState("");
-  const [files, setFiles] = useState<Record<string, Picked | null>>({});
-  const [idFront, setIdFront] = useState<Picked | null>(null);
-  const [idBack, setIdBack] = useState<Picked | null>(null);
+  const router = useRouter();
+  const [agreed, setAgreed] = useState(!!resume?.consentSigned);
+  const [signature, setSignature] = useState<{ kind: "draw" | "type"; value: string } | null>(null);
+  const initial = useMemo(() => {
+    const out: Record<string, Picked> = {};
+    for (const f of resume?.files ?? []) out[`${f.role}:${f.slotKey}`] = { fileName: f.fileName, size: f.size, seconds: f.seconds, problem: null, progress: null, uploaded: true };
+    return out;
+  }, [resume]);
+  const [files, setFiles] = useState<Record<string, Picked>>(initial);
+  const [busy, setBusy] = useState<"submit" | "cancel" | null>(null);
+  const [done, setDone] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const consentAlready = !!resume?.consentSigned;
 
-  const consentOk = !config.consent.enabled || (agreed && (config.consent.signature === "none" || signature !== ""));
-  const filesOk = config.files.every((f) => (f.required ? files[f.key] && !files[f.key]!.problem : !files[f.key]?.problem));
-  const ekycOk = !config.ekyc.enabled || (idFront && !idFront.problem && (config.ekyc.backSide !== "required" || (idBack && !idBack.problem)) && !idBack?.problem);
-  const ready = consentOk && filesOk && ekycOk;
+  const slotOk = (role: UploadRole, key: string, required: boolean) => {
+    const p = files[`${role}:${key}`];
+    if (!p) return !required;
+    return !p.problem && (mode === "preview" || p.uploaded);
+  };
+  const uploading = Object.values(files).some((p) => p.progress != null && !p.uploaded && !p.problem);
+  const consentOk = !config.consent.enabled || consentAlready || (agreed && (config.consent.signature === "none" || !!signature?.value));
+  const filesOk = config.files.every((f) => slotOk("FILE", f.key, f.required));
+  const ekycOk = !config.ekyc.enabled || (slotOk("ID_FRONT", "id_front", true) && slotOk("ID_BACK", "id_back", config.ekyc.backSide === "required"));
+  const ready = consentOk && filesOk && ekycOk && !uploading;
 
-  function submit() {
-    if (!ready) { notify.error(t("notReady"), t("notReadyDetail")); return; }
-    if (mode === "preview") notify.info(t("previewUpload"), t("previewUploadDetail"));
+  async function submit() {
+    if (!ready) { notify.error(uploading ? t("stillUploading") : t("notReady"), uploading ? t("stillUploadingDetail") : t("notReadyDetail")); return; }
+    if (mode === "preview") { notify.info(t("previewUpload"), t("previewUploadDetail")); return; }
+    if (!sessionRef) return;
+    setBusy("submit");
+    try {
+      if (config.consent.enabled && !consentAlready) {
+        const c = await signCollectConsent(sessionRef, signature ? { kind: signature.kind, value: signature.value } : { kind: "none", value: "" });
+        if (!c.ok) { notify.error(c.error, Object.values(c.fieldErrors ?? {})[0]); return; }
+      }
+      const r = await submitCollectSession(sessionRef);
+      if (!r.ok) { notify.error(r.error); return; }
+      notify.success(r.message ?? t("submittedTitle"), r.detail);
+      setDone(true);
+      router.refresh();
+    } catch {
+      notify.error(t("offline"), t("offlineDetail"));
+    } finally {
+      setBusy(null);
+    }
   }
+
+  async function cancel() {
+    if (mode === "preview") { onPreviewCancel(); return; }
+    if (!sessionRef) return;
+    if (!confirmCancel) { setConfirmCancel(true); return; }
+    setConfirmCancel(false);
+    setBusy("cancel");
+    try {
+      const r = await cancelCollectSession(sessionRef);
+      if (!r.ok) { notify.error(r.error); return; }
+      notify.info(r.message ?? t("sessionCancelled"), r.detail);
+      router.refresh();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (done) {
+    return (
+      <section className="grid place-items-center gap-3 rounded-xl border border-pine-600/30 bg-pine-50 px-6 py-12 text-center animate-rise">
+        <CheckCircle2 className="size-10 text-pine-600" />
+        <h2 className="text-[20px] font-semibold text-ink">{t("submittedTitle")}</h2>
+        <p className="max-w-md text-[14.5px] text-ink-2">{t("submittedBody")}</p>
+      </section>
+    );
+  }
+
+  const pick = (role: UploadRole, slot: FileSlot) => (
+    <FilePick key={`${role}:${slot.key}`} role={role} slot={{ ...slot, maxMb: Math.min(slot.maxMb, storageLimitMb) }} mode={mode} sessionRef={sessionRef} value={files[`${role}:${slot.key}`] ?? null}
+      onChange={(p) => setFiles((x) => ({ ...x, [`${role}:${slot.key}`]: p }))} compact={role !== "FILE"} />
+  );
 
   return (
     <section className="grid gap-6 rounded-xl border border-line bg-surface p-5 sm:p-7 animate-rise">
@@ -240,11 +354,17 @@ function SessionSteps({ config, mode, onCancel }: { config: CollectionConfig; mo
         <div className="grid gap-4">
           <h2 className="text-[19px] font-semibold text-ink">{config.consent.title || t("consentTitle")}</h2>
           <div className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-lg border border-line bg-paper px-4 py-3.5 font-[ui-serif,Georgia,serif] text-[14px] leading-[1.7] text-ink-2">{config.consent.text}</div>
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3.5 text-[14.5px] font-medium text-ink">
-            <input type="checkbox" className="mt-1 size-4 shrink-0 accent-pine-600" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
-            {config.consent.checkboxLabel || t("consentCheckbox")}
-          </label>
-          {config.consent.signature !== "none" ? <SignaturePad mode={config.consent.signature} onChange={(v) => setSignature(v.value)} /> : null}
+          {consentAlready ? (
+            <p className="flex items-center gap-2 rounded-lg border border-pine-600/30 bg-pine-50 px-3.5 py-3 text-[14px] font-medium text-pine-800"><CheckCircle2 className="size-4" /> {t("consentDone")}</p>
+          ) : (
+            <>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3.5 text-[14.5px] font-medium text-ink">
+                <input type="checkbox" className="mt-1 size-4 shrink-0 accent-pine-600" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+                {config.consent.checkboxLabel || t("consentCheckbox")}
+              </label>
+              {config.consent.signature !== "none" ? <SignaturePad mode={config.consent.signature} onChange={(v) => setSignature(v.value ? v : null)} /> : null}
+            </>
+          )}
         </div>
       ) : null}
 
@@ -252,7 +372,7 @@ function SessionSteps({ config, mode, onCancel }: { config: CollectionConfig; mo
         <div key={slot.key} className="grid gap-3 border-t border-line pt-6 first:border-0 first:pt-0">
           <h2 className="text-[19px] font-semibold text-ink">{slot.label}</h2>
           {slot.notice.trim() ? <p className="whitespace-pre-line rounded-lg border-2 border-rose-600/40 bg-rose-50 px-4 py-3 text-[14px] font-medium leading-relaxed text-rose-700">{slot.notice}</p> : null}
-          <FilePick slot={slot} value={files[slot.key] ?? null} onChange={(p) => setFiles((x) => ({ ...x, [slot.key]: p }))} />
+          {pick("FILE", slot)}
         </div>
       ))}
 
@@ -262,31 +382,50 @@ function SessionSteps({ config, mode, onCancel }: { config: CollectionConfig; mo
           {config.ekyc.note.trim() ? <p className="whitespace-pre-line text-[14px] leading-relaxed text-muted">{config.ekyc.note}</p> : null}
           <p className="text-[14.5px] font-semibold text-ink">{t("ekycStep")}</p>
           <div className={cn("grid gap-3", config.ekyc.backSide !== "none" && "sm:grid-cols-2")}>
-            <FilePick slot={{ key: "id_front", label: t("frontSide"), kind: "image", required: true, maxMb: config.ekyc.maxMb, minSeconds: null, maxSeconds: null, notice: "" }}
-              value={idFront} onChange={setIdFront} compact />
-            {config.ekyc.backSide !== "none" ? (
-              <FilePick slot={{ key: "id_back", label: config.ekyc.backSide === "required" ? t("backSide") : t("backSideOptional"), kind: "image", required: config.ekyc.backSide === "required", maxMb: config.ekyc.maxMb, minSeconds: null, maxSeconds: null, notice: "" }}
-                value={idBack} onChange={setIdBack} compact />
-            ) : null}
+            {pick("ID_FRONT", { key: "id_front", label: t("frontSide"), kind: "image", required: true, maxMb: config.ekyc.maxMb, minSeconds: null, maxSeconds: null, notice: "" })}
+            {config.ekyc.backSide !== "none"
+              ? pick("ID_BACK", { key: "id_back", label: config.ekyc.backSide === "required" ? t("backSide") : t("backSideOptional"), kind: "image", required: config.ekyc.backSide === "required", maxMb: config.ekyc.maxMb, minSeconds: null, maxSeconds: null, notice: "" })
+              : null}
           </div>
         </div>
       ) : null}
 
+      {confirmCancel ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-600/30 bg-rose-50 px-4 py-3 animate-rise">
+          <p className="text-[14px] text-rose-800">{t("cancelConfirm")}</p>
+          <div className="flex gap-2">
+            <Button type="button" size="sm" variant="ghost" onClick={() => setConfirmCancel(false)}>{t("keepGoing")}</Button>
+            <Button type="button" size="sm" variant="danger" onClick={cancel}>{t("yesCancel")}</Button>
+          </div>
+        </div>
+      ) : null}
       <div className="grid gap-3 border-t border-line pt-6 sm:grid-cols-2">
-        <Button type="button" variant="secondary" size="lg" onClick={onCancel}>{t("cancelSession")}</Button>
-        <Button type="button" size="lg" disabled={!ready} onClick={submit}><Upload /> {t("upload")}</Button>
+        <Button type="button" variant="secondary" size="lg" loading={busy === "cancel"} disabled={!!busy} onClick={cancel}>{t("cancelSession")}</Button>
+        <Button type="button" size="lg" loading={busy === "submit"} disabled={!!busy || !ready} onClick={submit}><Upload /> {t("upload")}</Button>
       </div>
     </section>
   );
 }
 
-/** Reads the duration of a picked video or audio file in the browser (Q35: length is checked in the browser for now). */
+/** SHA-256 of the file, for the "same file submitted twice" check (2D). Null if the browser can't. */
+async function fileHash(file: File): Promise<string | null> {
+  try {
+    if (!crypto?.subtle || file.size > 600 * 1024 * 1024) return null;
+    const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+    return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return null;
+  }
+}
+
+/** Reads the duration of a video or audio file in the browser (Q35). */
 function readDuration(file: File, kind: FileSlot["kind"]): Promise<number | null> {
   if (kind === "image") return Promise.resolve(null);
   return new Promise((resolve) => {
     const el = document.createElement(kind === "audio" ? "audio" : "video");
     const url = URL.createObjectURL(file);
-    const done = (v: number | null) => { URL.revokeObjectURL(url); resolve(v); };
+    let settled = false;
+    const done = (v: number | null) => { if (settled) return; settled = true; URL.revokeObjectURL(url); resolve(v); };
     el.preload = "metadata";
     el.onloadedmetadata = () => done(Number.isFinite(el.duration) ? el.duration : null);
     el.onerror = () => done(null);
@@ -295,17 +434,20 @@ function readDuration(file: File, kind: FileSlot["kind"]): Promise<number | null
   });
 }
 
-function FilePick({ slot, value, onChange, compact = false }: { slot: FileSlot; value: Picked | null; onChange: (p: Picked | null) => void; compact?: boolean }) {
+function FilePick({ role, slot, mode, sessionRef, value, onChange, compact }: {
+  role: UploadRole; slot: FileSlot; mode: Mode; sessionRef: SessionRef | null; value: Picked | null; onChange: (p: Picked) => void; compact: boolean;
+}) {
   const t = useTranslations("collect");
-  const exts = KIND_EXTENSIONS[slot.kind];
-  const accept = slot.kind === "image" && compact ? "image/jpeg,image/png" : exts.map((e) => `.${e}`).join(",") + `,${slot.kind}/*`;
+  const exts = compact ? ["jpg", "jpeg", "png"] : KIND_EXTENSIONS[slot.kind];
+  const accept = exts.map((e) => `.${e}`).join(",") + (compact ? ",image/jpeg,image/png" : `,${slot.kind}/*`);
   const Icon = slot.kind === "video" ? FileVideo : slot.kind === "audio" ? Mic : ImageIcon;
+  const abort = useRef<AbortController | null>(null);
+  useEffect(() => () => abort.current?.abort(), []);
 
   async function pick(file: File) {
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-    const allowed = compact ? ["jpg", "jpeg", "png"] : exts;
     let problem: string | null = null;
-    if (!allowed.includes(ext)) problem = t("wrongType", { types: allowed.join(", ").toUpperCase() });
+    if (!exts.includes(ext)) problem = t("wrongType", { types: exts.join(", ").toUpperCase() });
     else if (file.size > slot.maxMb * 1024 * 1024) problem = t("tooBig", { size: formatBytes(file.size), max: slot.maxMb });
     const seconds = problem ? null : await readDuration(file, slot.kind);
     if (!problem && slot.kind !== "image") {
@@ -313,26 +455,50 @@ function FilePick({ slot, value, onChange, compact = false }: { slot: FileSlot; 
       else if (slot.minSeconds != null && seconds < slot.minSeconds) problem = t("tooShort", { seconds: Math.round(seconds), min: slot.minSeconds });
       else if (slot.maxSeconds != null && seconds > slot.maxSeconds) problem = t("tooLong", { seconds: Math.round(seconds), max: slot.maxSeconds });
     }
-    onChange({ file, seconds, problem });
-    if (problem) notify.error(t("fileProblem"), problem);
+    const base: Picked = { fileName: file.name, size: file.size, seconds, problem, progress: null, uploaded: false };
+    onChange(base);
+    if (problem) { notify.error(t("fileProblem"), problem); return; }
+    if (mode === "preview" || !sessionRef) return;
+
+    // Upload now, while the contributor carries on with the rest of the page.
+    abort.current?.abort();
+    const ctrl = new AbortController();
+    abort.current = ctrl;
+    const failed = (msg: string) => { onChange({ ...base, problem: msg }); notify.error(t("uploadFailed"), msg); };
+    try {
+      onChange({ ...base, progress: 0 });
+      const hashing = fileHash(file);
+      const prep = await prepareCollectUpload(sessionRef, { role, slotKey: slot.key, fileName: file.name, size: file.size });
+      if (!prep.ok) return failed(prep.fieldErrors?.file ?? prep.error);
+      await uploadToStorage(file, prep.data, (f) => onChange({ ...base, progress: f }), ctrl.signal);
+      const done = await completeCollectUpload(sessionRef, { role, slotKey: slot.key, fileName: file.name, path: prep.data.path, ticket: prep.data.ticket, durationSeconds: seconds, sha256: await hashing });
+      if (!done.ok) return failed(done.fieldErrors?.file ?? done.error);
+      onChange({ ...base, progress: 1, uploaded: true });
+      notify.success(t("uploaded"), file.name);
+    } catch (e) {
+      if (e instanceof UploadError && e.kind === "aborted") return;
+      failed(e instanceof UploadError && e.kind === "too-large" ? t("tooBigStorage") : t("uploadInterrupted"));
+    }
   }
 
+  const sending = value && value.progress != null && !value.uploaded && !value.problem;
   return (
     <div>
       {compact ? <p className="mb-1.5 text-[13.5px] font-semibold text-ink">{slot.label}{slot.required ? <span className="text-rose-600"> *</span> : null}</p> : null}
-      <label className={cn("flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed px-4 text-center transition-colors",
-        compact ? "py-7" : "py-9",
+      <label className={cn("relative flex cursor-pointer flex-col items-center justify-center gap-1.5 overflow-hidden rounded-lg border-2 border-dashed px-4 text-center transition-colors",
+        compact ? "py-7" : "py-9", sending && "pointer-events-none",
         value?.problem ? "border-rose-600/50 bg-rose-50/50" : value ? "border-pine-600/50 bg-pine-50/50" : "border-line-strong bg-paper hover:border-pine-500")}>
-        <input type="file" accept={accept} className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void pick(f); e.target.value = ""; }} />
+        <input type="file" accept={accept} className="sr-only" disabled={!!sending} onChange={(e) => { const f = e.target.files?.[0]; if (f) void pick(f); e.target.value = ""; }} />
         {value ? (
           <>
-            {value.problem ? <CircleAlert className="size-6 text-rose-600" /> : <CheckCircle2 className="size-6 text-pine-600" />}
-            <span className="max-w-full truncate text-[14px] font-medium text-ink">{value.file.name}</span>
-            <span className="text-[12.5px] text-muted">
-              {formatBytes(value.file.size)}{value.seconds != null ? `, ${t("seconds", { count: Math.round(value.seconds) })}` : ""}
-            </span>
-            {value.problem ? <span className="text-[12.5px] font-medium text-rose-700">{value.problem}</span> : <span className="text-[12.5px] text-pine-700">{t("looksGood")}</span>}
-            <span className="text-[12.5px] text-muted underline">{t("chooseAnother")}</span>
+            {value.problem ? <CircleAlert className="size-6 text-rose-600" /> : sending ? <Loader2 className="size-6 animate-spin text-pine-600" /> : <CheckCircle2 className="size-6 text-pine-600" />}
+            <span className="max-w-full truncate text-[14px] font-medium text-ink">{value.fileName}</span>
+            <span className="text-[12.5px] text-muted">{formatBytes(value.size)}{value.seconds != null ? `, ${t("seconds", { count: Math.round(value.seconds) })}` : ""}</span>
+            {value.problem ? <span className="text-[12.5px] font-medium text-rose-700">{value.problem}</span>
+              : sending ? <span className="tabular text-[12.5px] font-medium text-pine-700">{t("uploadingPct", { pct: Math.round((value.progress ?? 0) * 100) })}</span>
+              : <span className="text-[12.5px] text-pine-700">{mode === "preview" ? t("looksGood") : t("uploadedShort")}</span>}
+            {!sending ? <span className="text-[12.5px] text-muted underline">{t("chooseAnother")}</span> : null}
+            {sending ? <span className="absolute inset-x-0 bottom-0 h-1 bg-pine-100"><span className="block h-full bg-pine-600 transition-[width]" style={{ width: `${Math.round((value.progress ?? 0) * 100)}%` }} /></span> : null}
           </>
         ) : (
           <>
